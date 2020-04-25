@@ -1,14 +1,15 @@
 import React, {useState, useEffect, useCallback} from "react";
-import {Avatar,Form,Input,Select,Button,Row,Col} from "antd";
+import {Avatar,Form,Input,Select,Button,Row,Col,notification} from "antd";
 import { useDropzone } from "react-dropzone";
 import "./EditUserForm.scss";
 import NoAvatar from "../../../../assets/img/png/avatar.png";
 import { UserOutlined,MailOutlined,LockOutlined } from '@ant-design/icons';
-import {getAvatarApi} from "../../../../api/user";
+import {getAvatarApi,uploadAvatarApi,updateUserApi} from "../../../../api/user";
+import {getAccessTokenApi} from "../../../../api/auth";
 
 
 export default function EditUserForm(props) {
-    const {user} = props;
+    const {user, setIsVisibleModal,setReloadUsers } = props;
     const [avatar,SetAvatar] = useState(null);
     const [userData, setUserData] = useState({});
 
@@ -38,8 +39,50 @@ export default function EditUserForm(props) {
         }
     },[avatar]);
 
-    const updateUser = e => {
-        console.log(userData);
+    const updateUser = (e) => {
+        const token = getAccessTokenApi();
+        let userUpdate = userData;
+
+        if(userUpdate.password || userUpdate.repeatPassword) {
+            if(userUpdate.password !== userUpdate.repeatPassword) {
+                notification["error"]({
+                    message: "Las contraseñas deben ser iguales"
+                })
+                return;
+            } else {
+                delete userUpdate.repeatPassword;
+            }
+            
+        }
+
+        if(!userUpdate.name || !userUpdate.lastname || !userUpdate.email) {
+            notification["error"]({
+                message: "El nombre,apellido y email son obligatorios"
+            })
+            return;
+        }
+
+        if(typeof userUpdate.avatar === "object") {
+            uploadAvatarApi(token,userUpdate.avatar,user._id ).then(response => {
+                userUpdate.avatar = response.avatarName;
+                updateUserApi(token,userUpdate, user._id).then(result => {
+                    notification["success"]({message: result.message
+                    });
+                    setIsVisibleModal(false);
+                    setReloadUsers(true);
+                });
+            });
+        } else {
+            updateUserApi(token,userUpdate,user._id).then(result => {
+                notification["success"]({
+                    message: result.message
+                });
+                setIsVisibleModal(false);
+                setReloadUsers(true);
+            });
+        }
+
+
     }
 
     return (
